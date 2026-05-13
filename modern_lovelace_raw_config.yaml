@@ -1,0 +1,103 @@
+# Modern, low-dependency thermostat dashboard view
+#
+# Required custom dependencies:
+#   - nielsfaber/scheduler-component
+#   - nielsfaber/scheduler-card
+#
+# Everything else in this view uses core Home Assistant cards.
+# Replace climate.living_room with your real thermostat entity.
+
+- title: Climate
+  path: climate
+  icon: mdi:thermostat
+  badges: []
+  cards:
+    - type: vertical-stack
+      cards:
+        - type: markdown
+          content: >-
+            ## {{ state_attr('climate.living_room', 'friendly_name') or 'Thermostat' }}
+
+            {% set action = state_attr('climate.living_room', 'hvac_action') %}
+            {% set target = state_attr('climate.living_room', 'temperature') %}
+            {% if is_state('climate.living_room', 'off') %}
+            System is off.
+            {% elif action == 'heating' %}
+            Heating to **{{ target }}°**.
+            {% elif action == 'cooling' %}
+            Cooling to **{{ target }}°**.
+            {% else %}
+            Set to **{{ target }}°**.
+            {% endif %}
+
+        - type: thermostat
+          entity: climate.living_room
+          name: Living Room
+          show_current_as_primary: true
+
+        - type: entities
+          title: Thermostat Details
+          entities:
+            - entity: sensor.nest_temperature
+              name: Current temperature
+            - entity: sensor.nest_setpoint
+              name: Target temperature
+            - entity: sensor.nest_humidity
+              name: Inside humidity
+            - entity: sensor.nest_outside_temperature
+              name: Outside temperature
+            - entity: sensor.nest_hvac_action
+              name: HVAC action
+            - entity: sensor.nest_preset_mode
+              name: Preset
+
+        - type: grid
+          columns: 4
+          square: false
+          cards:
+            - type: button
+              name: Mode
+              icon: mdi:tune-variant
+              tap_action:
+                action: more-info
+                entity: climate.living_room
+
+            - type: button
+              name: Eco
+              icon: mdi:leaf
+              tap_action:
+                action: call-service
+                service: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room
+                data:
+                  preset_mode: eco
+
+            - type: button
+              name: Schedule
+              icon: mdi:calendar-clock
+              tap_action:
+                action: navigate
+                navigation_path: '#heat-schedule'
+
+            - type: button
+              name: History
+              icon: mdi:history
+              tap_action:
+                action: more-info
+                entity: climate.living_room
+
+        - type: custom:scheduler-card
+          title: Heat Schedule
+          discover_existing: false
+          include:
+            - climate.living_room
+
+        - type: history-graph
+          title: Last 24 Hours
+          hours_to_show: 24
+          entities:
+            - entity: climate.living_room
+            - entity: sensor.nest_temperature
+            - entity: sensor.nest_setpoint
+            - entity: sensor.nest_humidity
