@@ -1,0 +1,115 @@
+# Modern template sensors for the low-dependency dashboard.
+#
+# Replace these defaults if your Nest integration exposes different entity IDs.
+# These sensors avoid old hard-coded Celsius values and unsafe string comparisons.
+
+template:
+  - sensor:
+      - name: "Nest Temperature"
+        unique_id: nest_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "{{ state_attr('climate.living_room', 'temperature_unit') or '°F' }}"
+        availability: >-
+          {{ state_attr('climate.living_room', 'current_temperature') is number }}
+        state: >-
+          {{ state_attr('climate.living_room', 'current_temperature') | float | round(1) }}
+
+      - name: "Nest Setpoint"
+        unique_id: nest_setpoint
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "{{ state_attr('climate.living_room', 'temperature_unit') or '°F' }}"
+        availability: >-
+          {{ state_attr('climate.living_room', 'temperature') is number }}
+        state: >-
+          {{ state_attr('climate.living_room', 'temperature') | float | round(1) }}
+
+      - name: "Nest Humidity"
+        unique_id: nest_humidity
+        device_class: humidity
+        state_class: measurement
+        unit_of_measurement: "%"
+        availability: >-
+          {{ state_attr('climate.living_room', 'current_humidity') is number
+             or states('sensor.living_room_humidity') | is_number }}
+        state: >-
+          {% set climate_humidity = state_attr('climate.living_room', 'current_humidity') %}
+          {% if climate_humidity is number %}
+            {{ climate_humidity | round(0) }}
+          {% else %}
+            {{ states('sensor.living_room_humidity') | float | round(0) }}
+          {% endif %}
+
+      - name: "Nest HVAC Action"
+        unique_id: nest_hvac_action
+        availability: >-
+          {{ state_attr('climate.living_room', 'hvac_action') not in [none, 'unknown', 'unavailable'] }}
+        state: >-
+          {{ state_attr('climate.living_room', 'hvac_action') }}
+
+      - name: "Nest HVAC Mode"
+        unique_id: nest_hvac_mode
+        availability: >-
+          {{ states('climate.living_room') not in ['unknown', 'unavailable'] }}
+        state: >-
+          {{ states('climate.living_room') }}
+        attributes:
+          hvac_off: >-
+            {{ '✔' if is_state('climate.living_room', 'off') else '' }}
+          hvac_heat: >-
+            {{ '✔' if is_state('climate.living_room', 'heat') else '' }}
+          hvac_cool: >-
+            {{ '✔' if is_state('climate.living_room', 'cool') else '' }}
+          hvac_auto: >-
+            {{ '✔' if is_state('climate.living_room', 'heat_cool') or is_state('climate.living_room', 'auto') else '' }}
+
+      - name: "Nest Preset Mode"
+        unique_id: nest_preset_mode
+        availability: >-
+          {{ states('climate.living_room') not in ['unknown', 'unavailable'] }}
+        state: >-
+          {{ state_attr('climate.living_room', 'preset_mode') or 'none' }}
+        attributes:
+          none: >-
+            {{ '✔' if (state_attr('climate.living_room', 'preset_mode') in [none, 'none']) else '' }}
+          eco: >-
+            {{ '✔' if state_attr('climate.living_room', 'preset_mode') == 'eco' else '' }}
+
+      - name: "Nest Time to Temp Message"
+        unique_id: nest_time_to_temp_message
+        state: >-
+          {% set action = state_attr('climate.living_room', 'hvac_action') %}
+          {% set mode = states('climate.living_room') %}
+          {% if mode == 'off' %}
+            SYSTEM IS OFF
+          {% elif action == 'heating' %}
+            HEATING
+          {% elif action == 'cooling' %}
+            COOLING
+          {% elif mode in ['heat', 'cool', 'heat_cool', 'auto'] %}
+            SET TO {{ state_attr('climate.living_room', 'temperature') }}°
+          {% else %}
+            {{ mode | upper }}
+          {% endif %}
+        attributes:
+          hvac_action: >-
+            {{ state_attr('climate.living_room', 'hvac_action') }}
+
+      - name: "Nest Outside Temperature"
+        unique_id: nest_outside_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°F"
+        availability: >-
+          {{ states('sensor.gw3000b_outdoor_temperature') | is_number
+             or state_attr('weather.forecast_home', 'temperature') is number
+             or states('sensor.openweathermap_temperature') | is_number }}
+        state: >-
+          {% if states('sensor.gw3000b_outdoor_temperature') | is_number %}
+            {{ states('sensor.gw3000b_outdoor_temperature') | float | round(0) }}
+          {% elif state_attr('weather.forecast_home', 'temperature') is number %}
+            {{ state_attr('weather.forecast_home', 'temperature') | float | round(0) }}
+          {% else %}
+            {{ states('sensor.openweathermap_temperature') | float | round(0) }}
+          {% endif %}
